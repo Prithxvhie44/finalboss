@@ -1,0 +1,193 @@
+
+import random
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+# ---------------------------------------
+# 1. Load Dataset
+# ---------------------------------------
+
+data = load_breast_cancer()
+
+X = data.data
+y = data.target
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+# ---------------------------------------
+# 2. Genetic Algorithm Parameters
+# ---------------------------------------
+
+POPULATION_SIZE = 8
+GENERATIONS = 5
+MUTATION_RATE = 0.2
+
+# Chromosome: [n_estimators, max_depth]
+
+def create_individual():
+    return [
+        random.randint(20, 150),
+        random.randint(2, 15)
+    ]
+
+
+# ---------------------------------------
+# 3. Fitness Function
+# ---------------------------------------
+
+def fitness(individual):
+
+    n_estimators, max_depth = individual
+
+    model = RandomForestClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        random_state=42
+    )
+
+    scores = cross_val_score(
+        model,
+        X_train,
+        y_train,
+        cv=3,
+        scoring="accuracy"
+    )
+
+    return scores.mean()
+
+
+# ---------------------------------------
+# 4. Initialize Population
+# ---------------------------------------
+
+population = [
+    create_individual()
+    for _ in range(POPULATION_SIZE)
+]
+
+
+# ---------------------------------------
+# 5. Selection - Tournament Selection
+# ---------------------------------------
+
+def selection(population):
+
+    candidates = random.sample(
+        population,
+        min(3, len(population))
+    )
+
+    return max(candidates, key=fitness)
+
+
+# ---------------------------------------
+# 6. Crossover - Single Point
+# ---------------------------------------
+
+def crossover(parent1, parent2):
+
+    point = random.randint(1, len(parent1) - 1)
+
+    child1 = parent1[:point] + parent2[point:]
+    child2 = parent2[:point] + parent1[point:]
+
+    return child1, child2
+
+
+# ---------------------------------------
+# 7. Mutation
+# ---------------------------------------
+
+def mutation(individual):
+
+    if random.random() < MUTATION_RATE:
+        individual[0] = random.randint(20, 150)
+
+    if random.random() < MUTATION_RATE:
+        individual[1] = random.randint(2, 15)
+
+    return individual
+
+
+# ---------------------------------------
+# 8. Genetic Algorithm
+# ---------------------------------------
+
+random.seed(42)
+
+best_individual = None
+best_fitness = 0
+
+for generation in range(GENERATIONS):
+
+    print("\nGeneration:", generation + 1)
+
+    population = sorted(
+        population,
+        key=fitness,
+        reverse=True
+    )
+
+    current_best = population[0]
+    current_fitness = fitness(current_best)
+
+    if current_fitness > best_fitness:
+        best_fitness = current_fitness
+        best_individual = current_best.copy()
+
+    print("Best Parameters:", current_best)
+    print("Best Fitness:", round(current_fitness, 4))
+
+    # Elitism: Preserve the best individual
+    new_population = [current_best.copy()]
+
+    while len(new_population) < POPULATION_SIZE:
+
+        parent1 = selection(population)
+        parent2 = selection(population)
+
+        child1, child2 = crossover(parent1, parent2)
+
+        child1 = mutation(child1)
+        child2 = mutation(child2)
+
+        new_population.append(child1)
+
+        if len(new_population) < POPULATION_SIZE:
+            new_population.append(child2)
+
+    population = new_population
+
+
+# ---------------------------------------
+# 9. Final Model Training
+# ---------------------------------------
+
+print("\n========== OPTIMIZATION RESULT ==========")
+
+print("Best Parameters:", best_individual)
+print("Best Cross Validation Accuracy:",
+      round(best_fitness, 4))
+
+final_model = RandomForestClassifier(
+    n_estimators=best_individual[0],
+    max_depth=best_individual[1],
+    random_state=42
+)
+
+final_model.fit(X_train, y_train)
+
+# Test the optimized model
+y_pred = final_model.predict(X_test)
+
+accuracy = accuracy_score(y_test, y_pred)
+
+print("Final Test Accuracy:", round(accuracy * 100, 2), "%")
+print("=========================================")
