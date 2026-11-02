@@ -1,0 +1,110 @@
+
+import numpy as np
+
+# ----------------------------------
+# 1. Define Two Fuzzy Sets
+# ----------------------------------
+
+A = {1: 0.2, 2: 0.7, 3: 1.0}
+B = {1: 0.6, 2: 0.4, 3: 0.8}
+
+print("Fuzzy Set A:", A)
+print("Fuzzy Set B:", B)
+
+
+# ----------------------------------
+# 2. Mathematical Operations
+# ----------------------------------
+
+# Union
+union = {
+    x: max(A[x], B[x]) for x in A
+}
+
+# Intersection
+intersection = {
+    x: min(A[x], B[x]) for x in A
+}
+
+# Complement of A
+complement = {
+    x: 1 - A[x] for x in A
+}
+
+# Difference A - B
+difference = {
+    x: min(A[x], 1 - B[x]) for x in A
+}
+
+print("\n--- Mathematical Operations ---")
+print("Union:", union)
+print("Intersection:", intersection)
+print("Complement of A:", complement)
+print("Difference (A - B):", difference)
+
+
+# ----------------------------------
+# 3. Cartesian Product of Fuzzy Sets
+# ----------------------------------
+
+def cartesian_product(X, Y):
+    relation = np.zeros((len(X), len(Y)))
+
+    for i, x in enumerate(X):
+        for j, y in enumerate(Y):
+            relation[i][j] = min(X[x], Y[y])
+
+    return relation
+
+
+R = cartesian_product(A, B)
+
+print("\n--- Cartesian Product ---")
+print("Fuzzy Relation R (A x B):")
+print(R)
+
+
+# ----------------------------------
+# 4. Create Another Fuzzy Relation
+# ----------------------------------
+
+C = {'a': 0.9, 'b': 0.5}
+
+S = cartesian_product(B, C)
+
+print("\nFuzzy Set C:", C)
+print("Fuzzy Relation S (B x C):")
+print(S)
+
+
+# ----------------------------------
+# 5. Max-Min Composition
+# ----------------------------------
+
+def max_min_composition(R, S):
+    rows = R.shape[0]
+    cols = S.shape[1]
+    common = R.shape[1]
+
+    if common != S.shape[0]:
+        raise ValueError("Relations cannot be composed!")
+
+    result = np.zeros((rows, cols))
+
+    for i in range(rows):
+        for j in range(cols):
+            values = []
+
+            for k in range(common):
+                values.append(min(R[i][k], S[k][j]))
+
+            result[i][j] = max(values)
+
+    return result
+
+
+T = max_min_composition(R, S)
+
+print("\n--- Max-Min Composition ---")
+print("Result of R o S:")
+print(T)
