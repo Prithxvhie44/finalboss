@@ -1,0 +1,179 @@
+
+# Air Conditioner Controller using Fuzzy Logic
+# Mamdani Fuzzy Inference System
+
+# ---------------------------------------
+# 1. Membership Functions
+# ---------------------------------------
+
+def triangular(x, a, b, c):
+    if x <= a or x >= c:
+        return 0.0
+    elif x == b:
+        return 1.0
+    elif x < b:
+        return (x - a) / (b - a)
+    else:
+        return (c - x) / (c - b)
+
+
+def trapezoidal(x, a, b, c, d):
+    if x < a or x > d:
+        return 0.0
+    elif b <= x <= c:
+        return 1.0
+    elif x < b:
+        return (x - a) / (b - a)
+    else:
+        return (d - x) / (d - c)
+
+
+# ---------------------------------------
+# 2. Define Fuzzy Sets
+# ---------------------------------------
+
+def temperature_membership(t):
+    return {
+        "cold": trapezoidal(t, 0, 0, 15, 25),
+        "comfortable": triangular(t, 15, 25, 35),
+        "hot": trapezoidal(t, 25, 35, 45, 45)
+    }
+
+
+def humidity_membership(h):
+    return {
+        "low": trapezoidal(h, 0, 0, 30, 50),
+        "medium": triangular(h, 30, 50, 70),
+        "high": trapezoidal(h, 50, 70, 100, 100)
+    }
+
+
+def cooling_membership(c):
+    return {
+        "low": trapezoidal(c, 0, 0, 25, 50),
+        "medium": triangular(c, 25, 50, 75),
+        "high": trapezoidal(c, 50, 75, 100, 100)
+    }
+
+
+# ---------------------------------------
+# 3. Fuzzy Rules
+# ---------------------------------------
+
+rules = [
+    ("cold", "low", "low"),
+    ("cold", "medium", "low"),
+    ("cold", "high", "medium"),
+
+    ("comfortable", "low", "low"),
+    ("comfortable", "medium", "medium"),
+    ("comfortable", "high", "high"),
+
+    ("hot", "low", "high"),
+    ("hot", "medium", "high"),
+    ("hot", "high", "high")
+]
+
+
+# ---------------------------------------
+# 4. Fuzzification and Rule Evaluation
+# ---------------------------------------
+
+def air_conditioner_controller(temp, humidity):
+
+    temp_fuzzy = temperature_membership(temp)
+    humidity_fuzzy = humidity_membership(humidity)
+
+    # Output universe
+    output_values = list(range(101))
+
+    # Initialize aggregated output
+    aggregated = [0.0] * len(output_values)
+
+    print("\nFuzzified Temperature:", temp_fuzzy)
+    print("Fuzzified Humidity:", humidity_fuzzy)
+
+    print("\nRule Evaluation:")
+
+    for t_set, h_set, output_set in rules:
+
+        # AND operation using minimum
+        firing_strength = min(
+            temp_fuzzy[t_set],
+            humidity_fuzzy[h_set]
+        )
+
+        if firing_strength > 0:
+
+            print(
+                f"IF Temperature is {t_set} AND "
+                f"Humidity is {h_set} "
+                f"THEN Cooling is {output_set} "
+                f"(Strength: {firing_strength:.2f})"
+            )
+
+            # Apply output membership function
+            for i, c in enumerate(output_values):
+
+                membership = cooling_membership(c)[output_set]
+
+                # Clipping using minimum
+                clipped = min(firing_strength, membership)
+
+                # Aggregation using maximum
+                aggregated[i] = max(aggregated[i], clipped)
+
+    # -----------------------------------
+    # 5. Defuzzification using Centroid
+    # -----------------------------------
+
+    numerator = sum(
+        c * aggregated[i]
+        for i, c in enumerate(output_values)
+    )
+
+    denominator = sum(aggregated)
+
+    if denominator == 0:
+        return 0
+
+    cooling = numerator / denominator
+
+    return cooling
+
+
+# ---------------------------------------
+# 6. Main Program
+# ---------------------------------------
+
+print("===================================")
+print("   FUZZY AIR CONDITIONER CONTROL")
+print("===================================")
+
+temperature = float(input("Enter Room Temperature (0-45 C): "))
+humidity = float(input("Enter Room Humidity (0-100 %): "))
+
+if not (0 <= temperature <= 45 and 0 <= humidity <= 100):
+    print("Invalid input! Enter values within the given ranges.")
+
+else:
+    result = air_conditioner_controller(
+        temperature, humidity
+    )
+
+    print("\n===================================")
+    print("       AIR CONDITIONER OUTPUT")
+    print("===================================")
+
+    print(f"Temperature: {temperature} C")
+    print(f"Humidity: {humidity} %")
+    print(f"Cooling Level: {result:.2f} %")
+
+    if result < 40:
+        print("AC Status: LOW COOLING")
+    elif result < 70:
+        print("AC Status: MEDIUM COOLING")
+    else:
+        print("AC Status: HIGH COOLING")
+
+    print("===================================")
