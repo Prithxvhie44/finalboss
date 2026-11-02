@@ -1,0 +1,166 @@
+
+import numpy as np
+import random
+
+# ----------------------------------
+# 1. Define Cities
+# ----------------------------------
+
+cities = np.array([
+    [0, 0],
+    [2, 3],
+    [5, 2],
+    [6, 6],
+    [8, 3]
+])
+
+n = len(cities)
+
+# Calculate distance matrix
+distance = np.zeros((n, n))
+
+for i in range(n):
+    for j in range(n):
+        distance[i][j] = np.linalg.norm(
+            cities[i] - cities[j]
+        )
+
+# ----------------------------------
+# 2. ACO Parameters
+# ----------------------------------
+
+ants = 10
+iterations = 50
+
+alpha = 1
+beta = 2
+rho = 0.5
+Q = 100
+
+# Initialize pheromone
+pheromone = np.ones((n, n))
+
+# Heuristic information
+heuristic = 1 / (distance + 1e-10)
+np.fill_diagonal(heuristic, 0)
+
+
+# ----------------------------------
+# 3. Construct Ant Tour
+# ----------------------------------
+
+def construct_tour():
+
+    start = random.randint(0, n - 1)
+
+    tour = [start]
+    unvisited = set(range(n))
+    unvisited.remove(start)
+
+    while unvisited:
+
+        current = tour[-1]
+
+        probabilities = []
+
+        for city in unvisited:
+
+            p = (
+                pheromone[current][city] ** alpha
+                * heuristic[current][city] ** beta
+            )
+
+            probabilities.append(p)
+
+        probabilities = np.array(probabilities)
+        probabilities = probabilities / probabilities.sum()
+
+        next_city = random.choices(
+            list(unvisited),
+            weights=probabilities,
+            k=1
+        )[0]
+
+        tour.append(next_city)
+        unvisited.remove(next_city)
+
+    return tour
+
+
+# ----------------------------------
+# 4. Calculate Tour Distance
+# ----------------------------------
+
+def calculate_distance(tour):
+
+    total = 0
+
+    for i in range(len(tour) - 1):
+        total += distance[tour[i]][tour[i + 1]]
+
+    # Return to starting city
+    total += distance[tour[-1]][tour[0]]
+
+    return total
+
+
+# ----------------------------------
+# 5. Ant Colony Optimization
+# ----------------------------------
+
+random.seed(42)
+
+best_tour = None
+best_distance = float("inf")
+
+for iteration in range(iterations):
+
+    all_tours = []
+
+    for ant in range(ants):
+
+        tour = construct_tour()
+        cost = calculate_distance(tour)
+
+        all_tours.append((tour, cost))
+
+        if cost < best_distance:
+            best_distance = cost
+            best_tour = tour.copy()
+
+    # Pheromone evaporation
+    pheromone *= (1 - rho)
+
+    # Pheromone deposit
+    for tour, cost in all_tours:
+
+        deposit = Q / cost
+
+        for i in range(n - 1):
+            a = tour[i]
+            b = tour[i + 1]
+
+            pheromone[a][b] += deposit
+            pheromone[b][a] += deposit
+
+        # Closing edge
+        a = tour[-1]
+        b = tour[0]
+
+        pheromone[a][b] += deposit
+        pheromone[b][a] += deposit
+
+    print(
+        "Iteration:", iteration + 1,
+        "| Best Distance:", round(best_distance, 2)
+    )
+
+
+# ----------------------------------
+# 6. Display Final Result
+# ----------------------------------
+
+print("\n--- TSP RESULT ---")
+
+print("Best Tour:", best_tour + [best_tour[0]])
+print("Minimum Distance:", round(best_distance, 2))
