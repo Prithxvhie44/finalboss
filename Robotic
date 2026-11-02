@@ -1,0 +1,185 @@
+
+# Robotic Arm Control Using Fuzzy Logic
+# Mamdani Fuzzy Inference System
+
+# --------------------------------------
+# 1. Membership Functions
+# --------------------------------------
+
+def triangular(x, a, b, c):
+    if x <= a or x >= c:
+        return 0.0
+    elif x == b:
+        return 1.0
+    elif x < b:
+        return (x - a) / (b - a)
+    else:
+        return (c - x) / (c - b)
+
+
+def trapezoidal(x, a, b, c, d):
+    if x < a or x > d:
+        return 0.0
+    elif b <= x <= c:
+        return 1.0
+    elif x < b:
+        return (x - a) / (b - a)
+    else:
+        return (d - x) / (d - c)
+
+
+# --------------------------------------
+# 2. Fuzzy Sets for Distance Error
+# --------------------------------------
+
+def distance_membership(error):
+    return {
+        "small": trapezoidal(error, 0, 0, 10, 30),
+        "medium": triangular(error, 15, 50, 85),
+        "large": trapezoidal(error, 70, 90, 100, 100)
+    }
+
+
+# --------------------------------------
+# 3. Fuzzy Sets for Movement Speed
+# --------------------------------------
+
+def speed_membership(speed):
+    return {
+        "slow": trapezoidal(speed, 0, 0, 2, 4),
+        "medium": triangular(speed, 2, 5, 8),
+        "fast": trapezoidal(speed, 6, 8, 10, 10)
+    }
+
+
+# --------------------------------------
+# 4. Fuzzy Rules
+# --------------------------------------
+
+rules = [
+    ("small", "slow"),
+    ("medium", "medium"),
+    ("large", "fast")
+]
+
+
+# --------------------------------------
+# 5. Fuzzy Controller
+# --------------------------------------
+
+def fuzzy_controller(error):
+
+    fuzzy_error = distance_membership(error)
+
+    output_range = range(101)
+    aggregated = [0.0] * len(output_range)
+
+    print("\nFuzzy Membership Values:")
+    print(fuzzy_error)
+
+    for input_set, output_set in rules:
+
+        # Rule firing strength
+        strength = fuzzy_error[input_set]
+
+        if strength > 0:
+
+            print(
+                f"IF Distance is {input_set} "
+                f"THEN Speed is {output_set} "
+                f"(Strength: {strength:.2f})"
+            )
+
+            for i, value in enumerate(output_range):
+
+                speed = value / 10
+
+                membership = speed_membership(speed)[output_set]
+
+                # Mamdani implication
+                clipped = min(strength, membership)
+
+                # Aggregation
+                aggregated[i] = max(
+                    aggregated[i], clipped
+                )
+
+    # ----------------------------------
+    # 6. Defuzzification (Centroid)
+    # ----------------------------------
+
+    numerator = sum(
+        (i / 10) * aggregated[i]
+        for i in range(len(output_range))
+    )
+
+    denominator = sum(aggregated)
+
+    if denominator == 0:
+        return 0
+
+    return numerator / denominator
+
+
+# --------------------------------------
+# 7. Simulate Robotic Arm Movement
+# --------------------------------------
+
+print("====================================")
+print("     FUZZY ROBOTIC ARM CONTROL")
+print("====================================")
+
+initial_position = float(input("Enter initial position (0-100): "))
+target_position = float(input("Enter target position (0-100): "))
+
+if not (0 <= initial_position <= 100 and
+        0 <= target_position <= 100):
+
+    print("Invalid position! Enter values between 0 and 100.")
+
+else:
+
+    position = initial_position
+    step = 0
+
+    print("\n--- Robotic Arm Simulation ---")
+
+    while abs(target_position - position) > 0.01:
+
+        error = abs(target_position - position)
+
+        # Calculate speed using fuzzy logic
+        speed = fuzzy_controller(error)
+
+        # Determine movement direction
+        direction = 1 if target_position > position else -1
+
+        # Move without overshooting target
+        movement = min(speed, error)
+
+        position += direction * movement
+
+        step += 1
+
+        print(
+            f"\nStep {step}: "
+            f"Position = {position:.2f}, "
+            f"Error = {abs(target_position-position):.2f}, "
+            f"Speed = {speed:.2f}"
+        )
+
+        if step >= 100:
+            print("Maximum simulation steps reached.")
+            break
+
+    print("\n====================================")
+    print("       SIMULATION COMPLETED")
+    print("====================================")
+    print(f"Final Position: {position:.2f}")
+    print(f"Target Position: {target_position:.2f}")
+
+    if abs(target_position - position) <= 0.01:
+        print("Status: Target Reached Successfully!")
+    else:
+        print("Status: Target Not Reached")
+
