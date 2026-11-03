@@ -1,0 +1,240 @@
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# ---------------------------------------
+# 1. Warehouse Configuration
+# ---------------------------------------
+
+products = ["A", "B", "C", "D", "E", "F"]
+
+frequency = np.array([50, 40, 30, 20, 10, 5])
+
+# Picking station
+depot = np.array([0, 0])
+
+# Available storage locations
+slots = np.array([
+    [2, 2],
+    [2, 5],
+    [2, 8],
+    [6, 2],
+    [6, 5],
+    [6, 8]
+])
+
+n = len(products)
+
+# Manhattan distance from picking station
+distances = np.sum(np.abs(slots - depot), axis=1)
+
+
+# ---------------------------------------
+# 2. PSO Parameters
+# ---------------------------------------
+
+particles = 30
+iterations = 150
+
+w = 0.7
+c1 = 1.5
+c2 = 1.5
+
+np.random.seed(42)
+
+# ---------------------------------------
+# 3. Random-Key Encoding
+# ---------------------------------------
+
+def decode(position):
+
+    # Sort particle values to create
+    # a unique product-to-slot assignment
+
+    order = np.argsort(position)
+
+    # Slots are ordered from nearest to farthest
+    slot_order = np.argsort(distances)
+
+    layout = np.zeros(n, dtype=int)
+
+    for rank, product_index in enumerate(order):
+
+        layout[product_index] = slot_order[rank]
+
+    return layout
+
+
+# ---------------------------------------
+# 4. Fitness Function
+# ---------------------------------------
+
+def fitness(position):
+
+    layout = decode(position)
+
+    total_cost = 0
+
+    for i in range(n):
+
+        assigned_slot = layout[i]
+
+        # Frequency multiplied by distance
+        total_cost += (
+            frequency[i] * distances[assigned_slot]
+        )
+
+    return total_cost
+
+
+# ---------------------------------------
+# 5. Initialize Particles
+# ---------------------------------------
+
+positions = np.random.rand(particles, n)
+
+velocities = np.zeros((particles, n))
+
+pbest_positions = positions.copy()
+
+pbest_scores = np.array([
+    fitness(p) for p in positions
+])
+
+best_index = np.argmin(pbest_scores)
+
+gbest_position = pbest_positions[best_index].copy()
+
+gbest_score = pbest_scores[best_index]
+
+
+# ---------------------------------------
+# 6. Particle Swarm Optimization
+# ---------------------------------------
+
+for iteration in range(iterations):
+
+    for i in range(particles):
+
+        r1 = np.random.rand(n)
+        r2 = np.random.rand(n)
+
+        # Velocity update
+        velocities[i] = (
+            w * velocities[i]
+            + c1 * r1 * (
+                pbest_positions[i] - positions[i]
+            )
+            + c2 * r2 * (
+                gbest_position - positions[i]
+            )
+        )
+
+        # Position update
+        positions[i] += velocities[i]
+
+        # Keep positions within bounds
+        positions[i] = np.clip(
+            positions[i], 0, 1
+        )
+
+        current_score = fitness(positions[i])
+
+        # Update personal best
+        if current_score < pbest_scores[i]:
+
+            pbest_scores[i] = current_score
+
+            pbest_positions[i] = positions[i].copy()
+
+        # Update global best
+        if current_score < gbest_score:
+
+            gbest_score = current_score
+
+            gbest_position = positions[i].copy()
+
+    print(
+        "Iteration:", iteration + 1,
+        "| Best Cost:", gbest_score
+    )
+
+
+# ---------------------------------------
+# 7. Display Optimized Warehouse Layout
+# ---------------------------------------
+
+best_layout = decode(gbest_position)
+
+print("\n--- OPTIMIZED WAREHOUSE LAYOUT ---")
+
+for i in range(n):
+
+    slot = best_layout[i]
+
+    print(
+        "Product", products[i],
+        "| Frequency:", frequency[i],
+        "| Location:", slots[slot],
+        "| Distance:", distances[slot]
+    )
+
+print("\nMinimum Total Picking Cost:", gbest_score)
+
+
+# ---------------------------------------
+# 8. Visualize Warehouse Layout
+# ---------------------------------------
+
+plt.figure(figsize=(8, 7))
+
+# Draw warehouse boundary
+plt.xlim(-1, 10)
+plt.ylim(-1, 10)
+
+plt.title("Optimized Warehouse Layout using PSO")
+plt.xlabel("Warehouse X Coordinate")
+plt.ylabel("Warehouse Y Coordinate")
+
+# Draw picking station
+plt.scatter(
+    depot[0], depot[1],
+    color="red", marker="*", s=250,
+    label="Picking Station"
+)
+
+plt.text(
+    depot[0] + 0.2,
+    depot[1] + 0.2,
+    "PICKING"
+)
+
+# Draw storage locations
+for i in range(n):
+
+    slot = best_layout[i]
+
+    x, y = slots[slot]
+
+    plt.scatter(
+        x, y, s=180,
+        label=f"Product {products[i]}"
+    )
+
+    plt.text(
+        x + 0.2, y + 0.2,
+        f"{products[i]}\nFreq:{frequency[i]}"
+    )
+
+    # Connect picking station to storage location
+    plt.plot(
+        [depot[0], x],
+        [depot[1], y],
+        linestyle="--",
+        alpha=0.5
+    )
+
+plt.grid(True)
+plt.legend()
+plt.show()
+
